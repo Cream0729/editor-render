@@ -5,8 +5,10 @@
 > 
 > EditorRender is an ultra-lightweight vanilla JavaScript code editor rendering engine with custom tags and syntax highlighting. A personal learning project, untested and not recommended for production use.
 
-一个极简的浏览器端代码编辑器渲染引擎，能够将自定义的 
+一个极简的浏览器端代码编辑器渲染引擎，能够将自定义的
+
 `<code-editor>` 和 `<text-editor>`
+
 HTML 标签转换为功能完整的代码编辑器组件。
 
 **✨ 另一回事，随心做这小玩意蛮不错的**
@@ -175,4 +177,5 @@ MIT License - 自由使用，但请自行承担风险。
 - [Monaco Editor](https://microsoft.github.io/monaco-editor/) - VS Code 同款内核
 - [PrismJS](https://prismjs.com/) - 专注语法高亮
 - 其余高亮方案
+
 
