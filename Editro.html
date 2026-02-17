@@ -1,0 +1,1151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>超级简洁的测试环境</title>
+  <link rel="stylesheet" href="Editor.css">
+  <style>
+    .split-block {
+      height: 30px;
+    }
+  </style>
+</head>
+<body>
+
+<code-editor class="java" lang="Java" title="Java 代码高亮测试">
+/**
+ * 用户服务管理类
+ * 提供用户CRUD操作和认证功能
+ *
+ * @author Developer
+ * @version 1.2.0
+ * @since 2024-01-15
+ * @see UserRepository
+ */
+public class UserService {
+
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+
+    /**
+     * 构造函数
+     *
+     * @param userRepository 用户数据仓库
+     * @param passwordEncoder 密码加密器
+     */
+    public UserService(UserRepository userRepository,
+                       PasswordEncoder passwordEncoder) {
+        this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
+    }
+
+    /**
+     * 根据ID查找用户
+     *
+     * @param id 用户ID
+     * @return Optional包装的用户对象
+     * @throws IllegalArgumentException 如果ID为null
+     */
+    public Optional&lt;User&gt; findById(Long id) {
+        if (id == null) {
+            throw new IllegalArgumentException("ID不能为空");
+        }
+        return userRepository.findById(id);
+    }
+
+    /**
+     * 用户登录认证
+     *
+     * @param username 用户名
+     * @param password 明文密码
+     * @return JWT令牌
+     * @throws AuthenticationException 认证失败时抛出
+     */
+    public String authenticate(String username, String password) {
+        User user = userRepository.findByUsername(username)
+            .orElseThrow(() -&gt; new AuthenticationException("用户不存在"));
+
+        if (!passwordEncoder.matches(password, user.getPassword())) {
+            throw new AuthenticationException("密码错误");
+        }
+
+        return generateToken(user);
+    }
+
+    @SuppressWarnings("unchecked")
+    private String generateToken(User user) {
+        Map&lt;String, Object&gt; claims = new HashMap&lt;&gt;();
+        claims.put("sub", user.getId());
+        claims.put("roles", user.getRoles());
+
+        return Jwts.builder()
+            .setClaims(claims)
+            .setIssuedAt(new Date())
+            .setExpiration(new Date(System.currentTimeMillis() + 86400000))
+            .signWith(SignatureAlgorithm.HS256, secretKey)
+            .compact();
+    }
+
+    /**
+     * 批量更新用户状态
+     *
+     * @param userIds 用户ID列表
+     * @param status 目标状态
+     * @return 更新成功的数量
+     * @deprecated 使用 {@link #batchUpdateStatus(List, UserStatus)} 替代
+     */
+    @Deprecated
+    public int updateUserStatus(List&lt;Long&gt; userIds, int status) {
+        return (int) userIds.stream()
+            .filter(id -&gt; userRepository.existsById(id))
+            .peek(id -&gt; userRepository.updateStatus(id, status))
+            .count();
+    }
+
+    /*
+     * 内部使用的常量定义
+     * 注意：使用线程安全的集合
+     */
+    private static final ConcurrentHashMap&lt;String, Object&gt; CACHE =
+        new ConcurrentHashMap&lt;&gt;();
+}
+</code-editor>
+<div class="split-block"></div>
+
+<code-editor class="python" lang="Python" title="Python 代码高亮测试">
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+异步任务调度器模块
+
+提供基于协程的任务调度、优先级队列、超时控制和结果缓存功能。
+支持并发限制、任务重试和优雅关闭。
+
+示例用法:
+    &gt;&gt;&gt; scheduler = TaskScheduler(max_concurrent=5)
+    &gt;&gt;&gt; await scheduler.start()
+    &gt;&gt;&gt; task_id = await scheduler.submit(fetch_data, priority=1)
+    &gt;&gt;&gt; result = await scheduler.get_result(task_id, timeout=30)
+
+作者: Python Developer
+版本: 1.0.0
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+import time
+from abc import ABC, abstractmethod
+from collections import defaultdict
+from dataclasses import dataclass, field
+from enum import Enum, auto
+from typing import (
+    Any, Callable, Coroutine, Dict, Generic, List, Optional,
+    Set, TypeVar, Union, get_type_hints
+)
+from functools import wraps
+from contextlib import asynccontextmanager
+
+# 类型变量定义
+T = TypeVar('T')
+R = TypeVar('R')
+
+
+class TaskStatus(Enum):
+    """任务状态枚举"""
+    PENDING = auto()      # 等待中
+    RUNNING = auto()      # 运行中
+    COMPLETED = auto()    # 已完成
+    FAILED = auto()       # 失败
+    CANCELLED = auto()    # 已取消
+    TIMEOUT = auto()      # 超时
+
+
+@dataclass(order=True)
+class TaskPriority:
+    """任务优先级包装器，支持比较"""
+    priority: int
+    created_at: float = field(default_factory=time.time, compare=True)
+
+    def __lt__(self, other: TaskPriority) -&gt; bool:
+        if self.priority != other.priority:
+            return self.priority &lt; other.priority
+        return self.created_at &lt; other.created_at
+
+
+@dataclass
+class TaskInfo(Generic[T]):
+    """任务信息数据类
+
+    Attributes:
+        task_id: 唯一任务标识符
+        coro: 协程对象
+        priority: 任务优先级
+        timeout: 超时时间（秒）
+        retries: 重试次数
+        status: 当前状态
+        result: 执行结果（如果有）
+        error: 错误信息（如果失败）
+        created_at: 创建时间戳
+        started_at: 开始执行时间戳
+        completed_at: 完成时间戳
+    """
+    task_id: str
+    coro: Coroutine[Any, Any, T]
+    priority: TaskPriority
+    timeout: Optional[float] = None
+    retries: int = 3
+    status: TaskStatus = TaskStatus.PENDING
+    result: Optional[T] = None
+    error: Optional[Exception] = None
+    created_at: float = field(default_factory=time.time)
+    started_at: Optional[float] = None
+    completed_at: Optional[float] = None
+
+    @property
+    def duration(self) -&gt; Optional[float]:
+        """计算任务执行耗时"""
+        if self.started_at and self.completed_at:
+            return self.completed_at - self.started_at
+        return None
+
+
+class TaskScheduler:
+    """异步任务调度器
+
+    管理协程任务的并发执行，支持优先级调度和资源限制。
+
+    Args:
+        max_concurrent: 最大并发任务数
+        default_timeout: 默认任务超时时间
+        retry_delay: 重试间隔（秒）
+
+    Raises:
+        ValueError: 如果参数无效
+        RuntimeError: 如果调度器未启动
+
+    Example:
+        async with TaskScheduler(max_concurrent=10) as scheduler:
+            task_id = await scheduler.submit(process_data, args=(data,))
+            result = await scheduler.wait_for(task_id)
+    """
+
+    def __init__(
+        self,
+        max_concurrent: int = 10,
+        default_timeout: Optional[float] = 60.0,
+        retry_delay: float = 1.0
+    ) -&gt; None:
+        if max_concurrent &lt;= 0:
+            raise ValueError("max_concurrent 必须大于0")
+
+        self._max_concurrent = max_concurrent
+        self._default_timeout = default_timeout
+        self._retry_delay = retry_delay
+
+        # 任务存储
+        self._tasks: Dict[str, TaskInfo] = {}
+        self._queue: asyncio.PriorityQueue[Tuple[TaskPriority, str]] = asyncio.PriorityQueue()
+
+        # 并发控制
+        self._semaphore = asyncio.Semaphore(max_concurrent)
+        self._running: Set[str] = set()
+
+        # 事件通知
+        self._shutdown_event = asyncio.Event()
+        self._result_events: Dict[str, asyncio.Event] = defaultdict(asyncio.Event)
+
+        # 工作协程
+        self._workers: List[asyncio.Task] = []
+        self._started = False
+
+        # 日志
+        self._logger = logging.getLogger(__name__)
+
+    async def start(self) -&gt; None:
+        """启动调度器"""
+        if self._started:
+            return
+
+        self._shutdown_event.clear()
+        self._workers = [
+            asyncio.create_task(self._worker_loop())
+            for _ in range(self._max_concurrent)
+        ]
+        self._started = True
+        self._logger.info(f"TaskScheduler 已启动，并发数: {self._max_concurrent}")
+
+    async def stop(self, wait: bool = True, timeout: Optional[float] = None) -&gt; None:
+        """停止调度器
+
+        Args:
+            wait: 是否等待正在运行的任务完成
+            timeout: 等待超时时间
+        """
+        if not self._started:
+            return
+
+        self._shutdown_event.set()
+
+        if wait and self._running:
+            try:
+                await asyncio.wait_for(
+                    asyncio.gather(*[
+                        self._result_events[task_id].wait()
+                        for task_id in list(self._running)
+                    ], return_exceptions=True),
+                    timeout=timeout
+                )
+            except asyncio.TimeoutError:
+                self._logger.warning("等待任务完成超时")
+
+        # 取消所有工作协程
+        for worker in self._workers:
+            worker.cancel()
+
+        await asyncio.gather(*self._workers, return_exceptions=True)
+        self._started = False
+        self._logger.info("TaskScheduler 已停止")
+
+    async def submit(
+        self,
+        func: Callable[..., Coroutine[Any, Any, T]],
+        args: tuple = (),
+        kwargs: Optional[dict] = None,
+        priority: int = 5,
+        timeout: Optional[float] = None,
+        retries: int = 3,
+        task_id: Optional[str] = None
+    ) -&gt; str:
+        """提交任务到调度器
+
+        @param func: 异步函数
+        @param args: 位置参数
+        @param kwargs: 关键字参数
+        @param priority: 优先级（数字越小优先级越高）
+        @param timeout: 超时时间
+        @param retries: 重试次数
+        @param task_id: 自定义任务ID
+        @returns: 任务ID
+        @raises RuntimeError: 如果调度器未启动
+        """
+        if not self._started:
+            raise RuntimeError("调度器未启动，请先调用 start()")
+
+        if kwargs is None:
+            kwargs = {}
+
+        task_id = task_id or f"task_{time.time()}_{id(func)}"
+        coro = func(*args, **kwargs)
+
+        task_info = TaskInfo(
+            task_id=task_id,
+            coro=coro,
+            priority=TaskPriority(priority),
+            timeout=timeout or self._default_timeout,
+            retries=retries
+        )
+
+        self._tasks[task_id] = task_info
+        await self._queue.put((task_info.priority, task_id))
+
+        self._logger.debug(f"任务 {task_id} 已提交，优先级: {priority}")
+        return task_id
+
+    async def get_result(
+        self,
+        task_id: str,
+        timeout: Optional[float] = None
+    ) -&gt; T:
+        """获取任务结果
+
+        如果任务未完成，会等待直到完成或超时。
+
+        @param task_id: 任务ID
+        @param timeout: 等待超时时间
+        @returns: 任务执行结果
+        @raises TimeoutError: 等待超时
+        @raises Exception: 任务执行时抛出的异常
+        """
+        if task_id not in self._tasks:
+            raise KeyError(f"任务 {task_id} 不存在")
+
+        task = self._tasks[task_id]
+
+        # 如果已完成，直接返回结果
+        if task.status == TaskStatus.COMPLETED:
+            return task.result
+        elif task.status == TaskStatus.FAILED:
+            raise task.error
+        elif task.status == TaskStatus.CANCELLED:
+            raise asyncio.CancelledError(f"任务 {task_id} 已取消")
+
+        # 等待完成
+        try:
+            await asyncio.wait_for(
+                self._result_events[task_id].wait(),
+                timeout=timeout
+            )
+        except asyncio.TimeoutError:
+            raise TimeoutError(f"等待任务 {task_id} 结果超时")
+
+        # 再次检查状态
+        if task.status == TaskStatus.COMPLETED:
+            return task.result
+        elif task.status == TaskStatus.FAILED:
+            raise task.error
+        else:
+            raise RuntimeError(f"任务状态异常: {task.status}")
+
+    async def _worker_loop(self) -&gt; None:
+        """工作协程主循环"""
+        while not self._shutdown_event.is_set():
+            try:
+                # 获取队列中的任务（带超时以便检查关闭事件）
+                try:
+                    priority, task_id = await asyncio.wait_for(
+                        self._queue.get(),
+                        timeout=0.5
+                    )
+                except asyncio.TimeoutError:
+                    continue
+
+                if task_id not in self._tasks:
+                    continue
+
+                task = self._tasks[task_id]
+
+                # 使用信号量控制并发
+                async with self._semaphore:
+                    if self._shutdown_event.is_set():
+                        break
+
+                    self._running.add(task_id)
+                    task.status = TaskStatus.RUNNING
+                    task.started_at = time.time()
+
+                    try:
+                        # 执行任务（带重试逻辑）
+                        result = await self._execute_with_retry(task)
+                        task.result = result
+                        task.status = TaskStatus.COMPLETED
+                        self._logger.info(f"任务 {task_id} 成功完成")
+
+                    except asyncio.CancelledError:
+                        task.status = TaskStatus.CANCELLED
+                        raise
+                    except Exception as e:
+                        task.error = e
+                        task.status = TaskStatus.FAILED
+                        self._logger.error(f"任务 {task_id} 失败: {e}")
+
+                    finally:
+                        task.completed_at = time.time()
+                        self._running.discard(task_id)
+                        self._result_events[task_id].set()
+
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                self._logger.exception(f"工作协程异常: {e}")
+
+    async def _execute_with_retry(self, task: TaskInfo) -&gt; Any:
+        """带重试的任务执行"""
+        last_error = None
+
+        for attempt in range(task.retries + 1):
+            try:
+                # 创建超时包装
+                return await asyncio.wait_for(
+                    task.coro,
+                    timeout=task.timeout
+                )
+            except asyncio.TimeoutError:
+                last_error = TimeoutError(f"任务执行超时（{task.timeout}秒）")
+                task.status = TaskStatus.TIMEOUT
+            except Exception as e:
+                last_error = e
+
+            if attempt &lt; task.retries:
+                wait_time = self._retry_delay * (2 ** attempt)  # 指数退避
+                self._logger.warning(
+                    f"任务 {task.task_id} 第 {attempt + 1} 次失败，{wait_time}秒后重试"
+                )
+                await asyncio.sleep(wait_time)
+
+        raise last_error
+
+    def get_stats(self) -&gt; dict:
+        """获取调度器统计信息"""
+        status_count = defaultdict(int)
+        for task in self._tasks.values():
+            status_count[task.status.name] += 1
+
+        return {
+            "total_tasks": len(self._tasks),
+            "running_tasks": len(self._running),
+            "queue_size": self._queue.qsize(),
+            "status_distribution": dict(status_count),
+            "max_concurrent": self._max_concurrent
+        }
+
+    # 上下文管理器支持
+    async def __aenter__(self) -&gt; TaskScheduler:
+        await self.start()
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -&gt; None:
+        await self.stop(wait=True)
+
+
+# 装饰器：自动提交到调度器
+def scheduled(
+    scheduler: TaskScheduler,
+    priority: int = 5,
+    timeout: Optional[float] = None
+):
+    """将函数装饰为自动提交到调度器的任务
+
+    @param scheduler: TaskScheduler 实例
+    @param priority: 任务优先级
+    @param timeout: 超时时间
+    """
+    def decorator(func: Callable[..., Coroutine[Any, Any, T]]) -&gt; Callable[..., str]:
+        @wraps(func)
+        async def wrapper(*args, **kwargs) -&gt; str:
+            return await scheduler.submit(
+                func,
+                args=args,
+                kwargs=kwargs,
+                priority=priority,
+                timeout=timeout
+            )
+        return wrapper
+    return decorator
+
+
+# 使用示例
+if __name__ == "__main__":
+    async def demo_task(name: str, delay: float) -&gt; str:
+        """示例任务"""
+        await asyncio.sleep(delay)
+        return f"任务 {name} 完成（延迟 {delay}秒）"
+
+    async def main():
+        # 使用上下文管理器
+        async with TaskScheduler(max_concurrent=3) as scheduler:
+            # 提交多个任务
+            tasks = [
+                await scheduler.submit(demo_task, args=(f"task_{i}", i * 0.5))
+                for i in range(5)
+            ]
+
+            # 获取所有结果
+            results = await asyncio.gather(*[
+                scheduler.get_result(task_id)
+                for task_id in tasks
+            ])
+
+            print("\n".join(results))
+            print(f"\n统计: {scheduler.get_stats()}")
+
+    asyncio.run(main())
+</code-editor>
+<div class="split-block"></div>
+
+<code-editor class="html" lang="HTML" title="HTML 代码高亮测试">
+&lt;!DOCTYPE html&gt;
+&lt;html lang="zh-CN" data-theme="dark"&gt;
+&lt;head&gt;
+    &lt;meta charset="UTF-8"&gt;
+    &lt;meta name="viewport" content="width=device-width, initial-scale=1.0"&gt;
+    &lt;meta name="description" content="现代化代码编辑器演示页面"&gt;
+    &lt;meta name="author" content="Developer"&gt;
+    &lt;title&gt;CodeEditor Demo - 代码编辑器展示&lt;/title&gt;
+
+    &lt;!-- 预加载关键资源 --&gt;
+    &lt;link rel="preconnect" href="https://fonts.googleapis.com"&gt;
+    &lt;link rel="dns-prefetch" href="https://cdnjs.cloudflare.com"&gt;
+
+    &lt;!-- 样式表 --&gt;
+    &lt;link rel="stylesheet" href="/assets/css/editor.min.css"&gt;
+    &lt;style&gt;
+        /* 页面级自定义样式 */
+        :root {
+            --editor-bg: #282c34;
+            --editor-fg: #abb2bf;
+            --accent-color: #61afef;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            body {
+                background-color: #1e1e1e;
+                color: #d4d4d4;
+            }
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* 代码编辑器容器 */
+        .editor-wrapper {
+            position: relative;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+    &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;!-- 页面头部 --&gt;
+    &lt;header class="site-header" role="banner"&gt;
+        &lt;nav aria-label="主导航"&gt;
+            &lt;ul class="nav-list"&gt;
+                &lt;li&gt;&lt;a href="#java" class="nav-link"&gt;Java&lt;/a&gt;&lt;/li&gt;
+                &lt;li&gt;&lt;a href="#python" class="nav-link"&gt;Python&lt;/a&gt;&lt;/li&gt;
+                &lt;li&gt;&lt;a href="#javascript" class="nav-link"&gt;JavaScript&lt;/a&gt;&lt;/li&gt;
+                &lt;li&gt;&lt;a href="#css" class="nav-link"&gt;CSS&lt;/a&gt;&lt;/li&gt;
+            &lt;/ul&gt;
+        &lt;/nav&gt;
+    &lt;/header&gt;
+
+    &lt;main class="container" role="main"&gt;
+        &lt;!-- Java 代码示例 --&gt;
+        &lt;section id="java" class="code-section" aria-labelledby="java-title"&gt;
+            &lt;h2 id="java-title"&gt;Java 示例&lt;/h2&gt;
+            &lt;div class="editor-wrapper"&gt;
+                &lt;code-editor
+                    id="java-demo"
+                    lang="Java"
+                    title="UserService.java"
+                    copy="true"&gt;
+                    public class UserService {
+                        private final UserRepository repo;
+
+                        public UserService(UserRepository repo) {
+                            this.repo = repo;
+                        }
+                    }
+                &lt;/code-editor&gt;
+            &lt;/div&gt;
+        &lt;/section&gt;
+
+        &lt;!-- 表单示例 --&gt;
+        &lt;section id="form-demo" class="form-section"&gt;
+            &lt;h2&gt;配置表单&lt;/h2&gt;
+            &lt;form action="/api/config" method="POST" enctype="multipart/form-data"&gt;
+                &lt;fieldset&gt;
+                    &lt;legend&gt;编辑器设置&lt;/legend&gt;
+
+                    &lt;div class="form-group"&gt;
+                        &lt;label for="theme-select"&gt;主题风格&lt;/label&gt;
+                        &lt;select id="theme-select" name="theme" required&gt;
+                            &lt;option value="" disabled selected&gt;请选择主题&lt;/option&gt;
+                            &lt;option value="dark"&gt;深色主题&lt;/option&gt;
+                            &lt;option value="light"&gt;浅色主题&lt;/option&gt;
+                            &lt;option value="high-contrast"&gt;高对比度&lt;/option&gt;
+                        &lt;/select&gt;
+                    &lt;/div&gt;
+
+                    &lt;div class="form-group"&gt;
+                        &lt;label for="font-size"&gt;字体大小&lt;/label&gt;
+                        &lt;input
+                            type="range"
+                            id="font-size"
+                            name="fontSize"
+                            min="12"
+                            max="24"
+                            value="14"
+                            step="1"&gt;
+                        &lt;output for="font-size"&gt;14px&lt;/output&gt;
+                    &lt;/div&gt;
+
+                    &lt;div class="form-group"&gt;
+                        &lt;label class="checkbox-label"&gt;
+                            &lt;input type="checkbox" name="lineNumbers" checked&gt;
+                            显示行号
+                        &lt;/label&gt;
+                    &lt;/div&gt;
+                &lt;/fieldset&gt;
+
+                &lt;div class="form-actions"&gt;
+                    &lt;button type="submit" class="btn btn-primary"&gt;保存设置&lt;/button&gt;
+                    &lt;button type="reset" class="btn btn-secondary"&gt;重置&lt;/button&gt;
+                &lt;/div&gt;
+            &lt;/form&gt;
+        &lt;/section&gt;
+    &lt;/main&gt;
+
+    &lt;!-- 页脚 --&gt;
+    &lt;footer class="site-footer" role="contentinfo"&gt;
+        &lt;p&gt;&amp;copy; 2024 CodeEditor Demo. All rights reserved.&lt;/p&gt;
+        &lt;p&gt;
+            &lt;a href="/privacy"&gt;隐私政策&lt;/a&gt; |
+            &lt;a href="/terms"&gt;使用条款&lt;/a&gt;
+        &lt;/p&gt;
+    &lt;/footer&gt;
+
+    &lt;!-- 脚本加载 --&gt;
+    &lt;script type="module"&gt;
+        // 动态导入模块
+        import { EditorRender } from '/assets/js/editor-render.js';
+
+        document.addEventListener('DOMContentLoaded', () =&gt; {
+            EditorRender.setup();
+
+            // 配置不同语言的高亮
+            EditorRender.forDom('#java').config('/config/java.conf');
+            EditorRender.forDom('#python').config('/config/python.conf');
+        });
+    &lt;/script&gt;
+
+    &lt;!-- 兼容性提示 --&gt;
+    &lt;noscript&gt;
+        &lt;div class="noscript-warning"&gt;
+            &lt;p&gt;请启用 JavaScript 以使用代码编辑器功能。&lt;/p&gt;
+        &lt;/div&gt;
+    &lt;/noscript&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+</code-editor>
+<div class="split-block"></div>
+
+<code-editor class="css" lang="CSS" title="CSS 代码高亮测试">
+/**
+ * CodeEditor 样式系统
+ * 提供深色/浅色主题、响应式布局和动画效果
+ *
+ * @version 2.0.0
+ * @author Frontend Team
+ */
+
+/* ==================== 基础变量定义 ==================== */
+:root {
+    /* 颜色系统 - One Dark 主题 */
+    --bg-primary: #282c34;
+    --bg-secondary: #21252b;
+    --bg-tertiary: #2c313a;
+    --text-primary: #abb2bf;
+    --text-secondary: #828997;
+    --accent-blue: #61afef;
+    --accent-green: #98c379;
+    --accent-red: #e06c75;
+    --accent-orange: #d19a66;
+    --accent-purple: #c678dd;
+    --border-color: #3e4451;
+
+    /* 尺寸系统 */
+    --editor-font-size: 14px;
+    --editor-line-height: 1.6;
+    --border-radius: 6px;
+    --spacing-xs: 4px;
+    --spacing-sm: 8px;
+    --spacing-md: 16px;
+    --spacing-lg: 24px;
+
+    /* 动画 */
+    --transition-fast: 150ms ease;
+    --transition-normal: 250ms ease;
+}
+
+/* 浅色主题覆盖 */
+[data-theme="light"] {
+    --bg-primary: #fafafa;
+    --bg-secondary: #f0f0f0;
+    --text-primary: #383a42;
+    --border-color: #e0e0e0;
+}
+
+/* ==================== 编辑器容器 ==================== */
+.code-editor,
+.text-editor {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    overflow: hidden;
+    font-family: 'Fira Code', 'Consolas', monospace;
+    font-size: var(--editor-font-size);
+    line-height: var(--editor-line-height);
+}
+
+/* 编辑器头部 */
+.editor-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--spacing-sm) var(--spacing-md);
+    background-color: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-color);
+    user-select: none;
+}
+
+.editor-title {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 0.9em;
+}
+
+.editor-info {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    color: var(--text-secondary);
+    font-size: 0.85em;
+}
+
+/* 代码类型标签 */
+.code-type {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: 2px 8px;
+    background-color: var(--bg-tertiary);
+    border-radius: 3px;
+    font-size: 0.8em;
+}
+
+/* 复制按钮 */
+.copy-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: 4px 12px;
+    background-color: transparent;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.copy-btn:hover {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+    border-color: var(--accent-blue);
+}
+
+.copy-btn:active {
+    transform: scale(0.95);
+}
+
+/* ==================== 编辑器主体 ==================== */
+.editor-body {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+}
+
+/* 行号栏 */
+.editor-line-number {
+    flex-shrink: 0;
+    min-width: 50px;
+    padding: var(--spacing-md) var(--spacing-sm);
+    background-color: var(--bg-secondary);
+    border-right: 1px solid var(--border-color);
+    text-align: right;
+    color: var(--text-secondary);
+    overflow: hidden;
+    user-select: none;
+}
+
+.line-num {
+    height: calc(var(--editor-font-size) * var(--editor-line-height));
+    line-height: var(--editor-line-height);
+}
+
+/* 代码内容区 */
+.editor-content {
+    flex: 1;
+    padding: var(--spacing-md);
+    margin: 0;
+    background-color: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
+    white-space: pre;
+    overflow: auto;
+    tab-size: 4;
+    -moz-tab-size: 4;
+    outline: none;
+    resize: none;
+}
+
+/* 代码高亮颜色 */
+.hljs-keyword { color: var(--accent-purple); }
+.hljs-string { color: var(--accent-green); }
+.hljs-number { color: var(--accent-orange); }
+.hljs-function { color: var(--accent-blue); }
+.hljs-comment { color: var(--text-secondary); font-style: italic; }
+.hljs-operator { color: var(--accent-red); }
+
+/* ==================== 响应式设计 ==================== */
+@media (max-width: 768px) {
+    .code-editor,
+    .text-editor {
+        font-size: 12px;
+        border-radius: 0;
+        border-left: none;
+        border-right: none;
+    }
+
+    .editor-line-number {
+        min-width: 40px;
+        padding: var(--spacing-sm);
+    }
+
+    .editor-header {
+        padding: var(--spacing-xs) var(--spacing-sm);
+    }
+}
+
+/* 打印样式 */
+@media print {
+    .code-editor,
+    .text-editor {
+        border: 1px solid #ccc;
+        background-color: white !important;
+    }
+
+    .editor-header,
+    .editor-line-number {
+        background-color: #f5f5f5 !important;
+    }
+
+    .copy-btn {
+        display: none;
+    }
+}
+
+/* ==================== 动画关键帧 ==================== */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* 加载状态 */
+.editor-loading {
+    position: absolute;
+    inset: 0;
+    background-color: var(--bg-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+}
+
+.editor-loading::after {
+    content: '';
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--border-color);
+    border-top-color: var(--accent-blue);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* 滚动条样式 */
+.editor-content::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+}
+
+.editor-content::-webkit-scrollbar-track {
+    background-color: var(--bg-secondary);
+}
+
+.editor-content::-webkit-scrollbar-thumb {
+    background-color: var(--border-color);
+    border: 3px solid var(--bg-secondary);
+    border-radius: 6px;
+}
+
+.editor-content::-webkit-scrollbar-thumb:hover {
+    background-color: var(--text-secondary);
+}
+</code-editor>
+<div class="split-block"></div>
+
+<code-editor class="javascript" lang="JavaScript" title="JavaScript 代码高亮测试">
+/**
+ * 异步数据获取Hook
+ * 提供带缓存、重试、取消功能的请求管理
+ *
+ * @param {string} url - API端点
+ * @param {Object} options - 配置选项
+ * @returns {Object} 包含data、loading、error和refetch的状态对象
+ * @example
+ * const { data, loading, error } = useAsyncFetch('/api/users', { retries: 3 });
+ */
+function useAsyncFetch(url, options = {}) {
+    const { retries = 3, timeout = 5000, cache = true } = options;
+
+    const [state, setState] = React.useState({
+        data: null,
+        loading: true,
+        error: null
+    });
+
+    const abortControllerRef = React.useRef(null);
+    const cacheRef = React.useRef(new Map());
+
+    React.useEffect(() =&gt; {
+        let isCancelled = false;
+
+        const fetchData = async (attempt = 1) =&gt; {
+            // 检查缓存
+            if (cache && cacheRef.current.has(url)) {
+                setState(prev =&gt; ({ ...prev, data: cacheRef.current.get(url), loading: false }));
+                return;
+            }
+
+            try {
+                abortControllerRef.current = new AbortController();
+
+                const response = await Promise.race([
+                    fetch(url, {
+                        signal: abortControllerRef.current.signal,
+                        headers: { 'Content-Type': 'application/json' }
+                    }),
+                    new Promise((_, reject) =&gt;
+                        setTimeout(() =&gt; reject(new Error('Timeout')), timeout)
+                    )
+                ]);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const result = await response.json();
+
+                if (!isCancelled) {
+                    if (cache) cacheRef.current.set(url, result);
+                    setState({ data: result, loading: false, error: null });
+                }
+            } catch (err) {
+                if (isCancelled) return;
+
+                if (attempt &lt; retries && err.name !== 'AbortError') {
+                    console.warn(`Retry ${attempt}/${retries} for ${url}`);
+                    setTimeout(() =&gt; fetchData(attempt + 1), 1000 * attempt);
+                } else {
+                    setState({ data: null, loading: false, error: err.message });
+                }
+            }
+        };
+
+        fetchData();
+
+        return () =&gt; {
+            isCancelled = true;
+            abortControllerRef.current?.abort();
+        };
+    }, [url, JSON.stringify(options)]);
+
+    const refetch = React.useCallback(() =&gt; {
+        cacheRef.current.delete(url);
+        setState(prev =&gt; ({ ...prev, loading: true }));
+    }, [url]);
+
+    return { ...state, refetch };
+}
+
+/**
+ * 防抖函数装饰器
+ * @param {Function} fn - 原函数
+ * @param {number} delay - 延迟毫秒
+ * @returns {Function} 防抖后的函数
+ */
+const debounce = (fn, delay) =&gt; {
+    let timer = null;
+
+    return function(...args) {
+        clearTimeout(timer);
+        timer = setTimeout(() =&gt; fn.apply(this, args), delay);
+    };
+};
+
+// 类定义示例
+class EventEmitter {
+    #listeners = new Map();
+
+    /**
+     * 注册事件监听器
+     * @param {string} event - 事件名
+     * @param {Function} callback - 回调函数
+     * @returns {Function} 取消订阅函数
+     */
+    on(event, callback) {
+        if (!this.#listeners.has(event)) {
+            this.#listeners.set(event, new Set());
+        }
+        this.#listeners.get(event).add(callback);
+
+        // 返回取消订阅函数
+        return () =&gt; this.off(event, callback);
+    }
+
+    emit(event, ...args) {
+        const callbacks = this.#listeners.get(event);
+        if (callbacks) {
+            callbacks.forEach(cb =&gt; {
+                try {
+                    cb(...args);
+                } catch (err) {
+                    console.error(`Error in event listener for ${event}:`, err);
+                }
+            });
+        }
+    }
+
+    // 清理所有监听器
+    dispose() {
+        this.#listeners.clear();
+    }
+}
+
+// 正则表达式测试
+const emailRegex = /^[\w.-]+@[\w.-]+\.\w{2,}$/;
+const isValidEmail = (email) =&gt; emailRegex.test(email);
+
+/* 多行字符串模板 */
+const htmlTemplate = `
+&lt;div class="user-card" data-id="${user.id}"&gt;
+    &lt;h3&gt;${user.name}&lt;/h3&gt;
+    &lt;p&gt;Email: ${user.email}&lt;/p&gt;
+    &lt;button onclick="handleClick(${user.id})"&gt;查看详情&lt;/button&gt;
+&lt;/div&gt;
+`;
+
+export { useAsyncFetch, debounce, EventEmitter, isValidEmail };
+</code-editor>
+<div class="split-block"></div>
+
+</body>
+<script src="EditorRender.js"></script>
+<script>
+  EditorRender.forDom(".css").config("config/css.conf");
+  EditorRender.forDom(".html").config("config/html.conf");
+  EditorRender.forDom(".java").config("config/java.conf");
+  EditorRender.forDom(".python").config("config/python.conf");
+  EditorRender.forDom(".javascript").config("config/javascript.conf");
+</script>
+</html>

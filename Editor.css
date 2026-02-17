@@ -1,0 +1,155 @@
+* {
+  padding: 0;
+  margin: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --eidtor-font-size: 16px;
+  --eidtor-line-height: 20px;
+}
+
+body {
+  background: #eee;
+  padding: 50px 150px;
+}
+
+.text-editor,
+.code-editor {
+  position: relative;
+  user-select: none;
+  -ms-user-select: none;
+  -moz-user-select: none;
+  -webkit-user-select: none;
+  box-shadow: 0 0 3px rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(200, 200, 200, 1);
+  background-color: rgba(255, 255, 255, 1);
+}
+
+.text-editor .editor-header,
+.code-editor .editor-header {
+  position: sticky;
+  display: flex;
+  top: 0;
+  height: 32px;
+  overflow: hidden;
+  padding: 4px 12px;
+  align-items: center;
+  flex-direction: row;
+  background-color: #fff;
+  justify-content: space-between;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  border-bottom: 1px solid rgba(200, 200, 200, 1);
+}
+
+.text-editor .editor-header *,
+.code-editor .editor-header * {
+  height: 100%;
+  display: flex;
+  white-space: nowrap;
+  align-items: center;
+  flex-direction: row;
+}
+
+.text-editor .editor-header .editor-title,
+.code-editor .editor-header .editor-title {
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.text-editor .editor-header .editor-info,
+.code-editor .editor-header .editor-info {
+  padding-right: 16px;
+}
+
+.text-editor .editor-header .editor-info *,
+.code-editor .editor-header .editor-info * {
+  display: flex;
+  overflow: hidden;
+  border: none;
+  background: none;
+  align-items: center;
+  flex-direction: row;
+  white-space: nowrap;
+  color: rgba(100, 100, 100, 1);
+}
+
+.text-editor .editor-header .editor-info .split,
+.code-editor .editor-header .editor-info .split {
+  margin: 0 10px 4px 18px;
+}
+
+.code-editor .editor-header .editor-info .editor-lang {
+  font-size: 15px;
+  font-family: "JetBrains Mono", Consolas, "Courier New", monospace;
+}
+
+.text-editor .editor-header .editor-info .copy-btn,
+.code-editor .editor-header .editor-info .copy-btn {
+  font-size: 13px;
+  font-family: "Noto Sans SC", Consolas, "Courier New", monospace;
+}
+
+.text-editor .editor-header .editor-info .copy-btn:hover,
+.code-editor .editor-header .editor-info .copy-btn:hover,
+.text-editor .editor-header .editor-info .copy-btn:hover svg.icon-copy,
+.code-editor .editor-header .editor-info .copy-btn:hover svg.icon-copy {
+  color: #0a0a0a;
+  stroke: #1890ff;
+  cursor: pointer;
+}
+
+.text-editor .editor-header .editor-info .icon,
+.code-editor .editor-header .editor-info .icon {
+  width: 18px;
+  height: auto;
+  margin-right: 4px;
+  aspect-ratio: 1 / 1;
+}
+
+.copy-btn svg.icon-copy-success {
+  stroke: #52c41a;
+}
+
+.copy-btn svg.icon-copy-error {
+  stroke: #ff4d4f;
+}
+
+.text-editor .editor-body,
+.code-editor .editor-body {
+  display: grid;
+  overflow: hidden;
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.text-editor .editor-body .editor-line-number,
+.code-editor .editor-body .editor-line-number {
+  display: flex;
+  min-width: 45px;
+  align-items: end;
+  flex-direction: column;
+  padding: 4px 8px 18px 12px;
+  font-size: var(--eidtor-font-size);
+  line-height: var(--eidtor-line-height);
+  border-right: 1px solid rgba(200, 200, 200, 1);
+  font-family: "JetBrains Mono", Consolas, "Courier New", monospace;
+}
+
+.text-editor .editor-body .editor-content,
+.code-editor .editor-body .editor-content {
+  display: block;
+  resize: none;
+  border: none;
+  outline: none;
+  min-height: 3em;
+  white-space: pre;
+  overflow-y: hidden;
+  overflow-x: auto;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  padding: 4px 8px 18px 8px;
+  font-size: var(--eidtor-font-size);
+  line-height: var(--eidtor-line-height);
+  font-family: "JetBrains Mono", Consolas, "Courier New", monospace;
+}
