@@ -98,6 +98,7 @@ boolean             rgba( 22, 160, 133, 1)
 🎯 API 参考
 
 方法	说明
+
 `EditorRender.setup()`	初始化并转换页面中所有编辑器标签
 
 `EditorRender.config(url)`	加载全局语法高亮配置
@@ -177,5 +178,6 @@ MIT License - 自由使用，但请自行承担风险。
 - [Monaco Editor](https://microsoft.github.io/monaco-editor/) - VS Code 同款内核
 - [PrismJS](https://prismjs.com/) - 专注语法高亮
 - 其余高亮方案
+
 
 
