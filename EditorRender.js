@@ -5,7 +5,7 @@ import {editor_builder} from './core/editor_builder.js'
 import {configure} from './core/configure.js'
 
 /**
- * 编辑器渲染器主模块
+ * 编辑器渲染器主模块 - v2.0.1
  *
  * 提供完整的Web代码编辑器解决方案，包括：
  * - 自定义标签解析（`<code-editor>` 和 `<text-editor>`）
@@ -163,6 +163,38 @@ export const EditorRender = (() => {
       const obj = new highlight_render(this.#selector);
       obj.config(await this.#attaching.compile());
       return obj;
+    }
+
+    /**
+     * 直接传入配置数据对象进行编译应用
+     *
+     * 绕过配置文件加载流程，直接使用内存中的配置对象进行渲染器初始化\
+     * 适用于动态生成配置、测试环境或需要完全程序化控制配置的场景
+     *
+     * @param {Object} data - 配置数据对象，结构需符合 highlight_render 配置规范
+     * @example
+     * // 程序化构建配置
+     * const editor = EditorRender.forDom('#dynamic-editor');
+     * const renderer = editor.compile_by_data({
+     *   'enclose-hig': [
+     *     {'"': {rig: '"', color: '#7d7'}},
+     *     {"'": {rig: "'", color: '#5a5'}}
+     *   ],
+     *   'keyword': {
+     *     'function': 'orange',
+     *     'const': '#a55'
+     *   }
+     * });
+     *
+     * // 动态修改配置后重新应用
+     * config.keyword['newKeyword'] = '#f00';
+     * renderer.config(config); // 使用 highlight_render 的方法重新配置
+     * @see Editor.compile
+     * @see Editor.attachment
+     * @see highlight_render.config
+     */
+    compile_by_data(data) {
+      return new highlight_render(this.#selector).config(data);
     }
   }
 

@@ -100,16 +100,16 @@ keyword:
   'var'          -> #a55
 ```
 
-**规则类型说明：**\
-`enclose-hig`    高优先级包围结构，内部不允许任何渲染（如字符串、注释）\
-`enclose-doc`    文档注释结构，内部只允许 doc-token 渲染\
-`enclose-low`    低优先级包围结构，内部允许 enclose-hig 渲染（如注解）\
-`pre-token`    前缀Token，往回寻找整词渲染，最长匹配优先\
-`doc-token`    文档内Token，仅可在 enclose-doc 内部渲染\
-`keyword`    基础关键词整词渲染
+**规则类型说明：**
 
-多配置合并\
-支持通过 `attachment()` 链式调用合并多个配置：
+- `enclose-hig`    高优先级包围结构，内部不允许任何渲染（如字符串、注释）
+- `enclose-doc`    文档注释结构，内部只允许 doc-token 渲染
+- `enclose-low`    低优先级包围结构，内部允许 enclose-hig 渲染（如注解）
+- `pre-token`    前缀Token，往回寻找整词渲染，最长匹配优先
+- `doc-token`    文档内Token，仅可在 enclose-doc 内部渲染
+- `keyword`    基础关键词整词渲染
+
+多配置合并 - 支持通过 `attachment()` 链式调用合并多个配置：
 
 ```javascript
 // 基础配置 + JavaScript特定配置
@@ -125,21 +125,22 @@ await EditorRender.forDom('#js-editor')
 
 🎯 API 参考
 
-**核心方法：**\
-`EditorRender.setup()`    初始化并转换页面中所有 `<code-editor>` 和 `<text-editor>` 标签    `void`\
-`EditorRender.config(url)`    加载全局语法高亮配置，作用于 `.editor-content` 元素    `Promise<highlight_render>`\
-`EditorRender.forDom(selector)`    为特定容器创建独立配置实例（自动追加 ` .editor-content`）    `Editor`\
-`EditorRender.setDom(selector)`    直接指定内容元素选择器（不自动追加后缀）    `Editor`
+**核心方法：**
 
-**Editor** - 用于特定容器的差异化配置：\
-`editor.config(url)`    直接加载单配置文件（不能与 attachment 混用）    `Promise<highlight_render>`\
-`editor.attachment(url)`    附加配置文件到待编译队列    `Editor`（链式调用）\
-`editor.compile()`    编译所有附加的配置并应用    `Promise<highlight_render>`
+- `EditorRender.setup()`  - 初始化并转换页面中所有 `<code-editor>` 和 `<text-editor>` 标签
+- `EditorRender.config(url)`  - 加载全局语法高亮配置，作用于 `.editor-content` 元素
+- `EditorRender.forDom(selector)` - 为特定容器创建独立配置实例（自动追加 ` .editor-content`）
+- `EditorRender.setDom(selector)` - 直接指定内容元素选择器（不自动追加后缀）
 
-**highlight_render** - 用于直接操作渲染引擎：\
-`renderer.config(data)`    重新配置并立即渲染\
-`renderer.reset_selector(dom)`    更改目标选择器\
-`renderer.highlight_refresh()`    基于当前配置重新渲染\
+**Editor** - 用于特定容器的差异化配置：
+- `editor.config(url)`    直接加载单配置文件（不能与 attachment 混用）
+- `editor.attachment(url)`    附加配置文件到待编译队列，可链式调用
+- `editor.compile()`    编译所有附加的配置并应用
+
+**highlight_render** - 用于直接操作渲染引擎：
+- `renderer.config(data)`    重新配置并立即渲染
+- `renderer.reset_selector(dom)`    更改目标选择器
+- `renderer.highlight_refresh()`    基于当前配置重新渲染
 
 ---
 

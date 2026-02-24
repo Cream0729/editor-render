@@ -53,7 +53,6 @@ export class highlight_render {
    *   - 'pre-token': Array<Object> 前缀Token规则数组
    *   - 'doc-token': Object 文档内Token映射表
    *   - 'keyword': Object 关键词颜色映射表
-   * @type JSON
    */
   config(data) {
     this.#config = data;
