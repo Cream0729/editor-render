@@ -5,8 +5,8 @@
 }
 
 :root {
-  --eidtor-font-size: 16px;
-  --eidtor-line-height: 20px;
+  --editor-font-size: 16px;
+  --editor-line-height: 20px;
 }
 
 body {
@@ -24,6 +24,7 @@ body {
   box-shadow: 0 0 3px rgba(0, 0, 0, 0.25);
   border: 1px solid rgba(200, 200, 200, 1);
   background-color: rgba(255, 255, 255, 1);
+  margin-bottom: 30px;
 }
 
 .text-editor .editor-header,
@@ -79,7 +80,7 @@ body {
   margin: 0 10px 4px 18px;
 }
 
-.code-editor .editor-header .editor-info .editor-lang {
+.code-editor .editor-header .editor-info .code-type {
   font-size: 15px;
   font-family: "JetBrains Mono", Consolas, "Courier New", monospace;
 }
@@ -129,10 +130,12 @@ body {
   align-items: end;
   flex-direction: column;
   padding: 4px 8px 18px 12px;
-  font-size: var(--eidtor-font-size);
-  line-height: var(--eidtor-line-height);
+  font-size: var(--editor-font-size);
+  line-height: var(--editor-line-height);
   border-right: 1px solid rgba(200, 200, 200, 1);
   font-family: "JetBrains Mono", Consolas, "Courier New", monospace;
+  color: #999;
+  background: #fafafa;
 }
 
 .text-editor .editor-body .editor-content,
@@ -149,7 +152,37 @@ body {
   width: 100%;
   max-width: 100%;
   padding: 4px 8px 18px 8px;
-  font-size: var(--eidtor-font-size);
-  line-height: var(--eidtor-line-height);
+  font-size: var(--editor-font-size);
+  line-height: var(--editor-line-height);
   font-family: "JetBrains Mono", Consolas, "Courier New", monospace;
+  background: #fff;
+  color: #333;
+}
+
+.code-editor .editor-body pre {
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+}
+
+.code-editor .editor-body code.editor-content {
+  background: transparent;
+}
+
+/* 滚动条样式 */
+.editor-content::-webkit-scrollbar {
+  height: 8px;
+}
+
+.editor-content::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+.editor-content::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.editor-content::-webkit-scrollbar-thumb:hover {
+  background: #a1a1a1;
 }
