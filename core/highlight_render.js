@@ -1,22 +1,35 @@
+// noinspection JSUnusedGlobalSymbols
+
 /**
- * 代码高亮渲染核心类
+ * **代码高亮渲染核心类**
  *
  * 提供基于状态机的代码语法高亮渲染功能，支持多种高亮规则：
  * - enclose-hig: 高优先级包围结构（内部不允许任何渲染，如字符串、注释）
- * - enclose-doc: 文档注释包围结构（内部只允许 doc-token 渲染）
+ * - enclose-doc: 文档注释包围结构（内部只允许 doc-token 渲染，如JSDoc）
  * - enclose-low: 低优先级包围结构（内部允许 enclose-hig 渲染，如注解）
  * - pre-token: 前缀Token（往回寻找整词渲染，最长匹配优先）
- * - doc-token: 文档内Token（仅可在 enclose-doc 内部渲染）
- * - keyword: 基础关键词整词渲染
+ * - doc-token: 文档内Token（仅可在 enclose-doc 内部渲染，如@returns）
+ * - keyword: 基础关键词整词渲染（如function, class, return）
  *
- * 渲染优先级：enclose-hig > enclose-doc > enclose-low > pre-token > keyword
+ * 渲染优先级：enclose-doc > enclose-hig > enclose-low > pre-token > keyword
  *
  * @example
+ * // 创建高亮渲染器实例
  * const renderer = new highlight_render('.code-block');
+ *
+ * // 配置高亮规则
  * renderer.config({
- *   'enclose-hig': [{'"': {rig: '"', color: '#7d7'}}],
- *   'keyword': {'function': '#a55'}
+ *   'enclose-hig': [ // 高优先级包围规则
+ *     {'"': {rig: '"', color: '#7d7'}}, // 字符串
+ *     {"'": {rig: "'", color: '#5a5'}} // 单引号字符串
+ *   ],
+ *   'keyword': { // 关键词规则
+ *     'function': '#a55', // 函数关键字
+ *     'const': '#a55' // 常量关键字
+ *   }
  * });
+ *
+ * // 刷新渲染
  * renderer.highlight_refresh();
  */
 export class highlight_render {
@@ -53,11 +66,13 @@ export class highlight_render {
    *   - 'pre-token': Array<Object> 前缀Token规则数组
    *   - 'doc-token': Object 文档内Token映射表
    *   - 'keyword': Object 关键词颜色映射表
+   * @return {highlight_render} - 代码高亮渲染核心
    */
   config(data) {
     this.#config = data;
     document.querySelectorAll(this.#dom)
         .forEach(element => element.innerHTML = this.#render(element.textContent));
+    return this;
   }
 
   /**

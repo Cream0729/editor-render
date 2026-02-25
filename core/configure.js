@@ -1,4 +1,47 @@
 // noinspection ExceptionCaughtLocallyJS
+
+/**
+ * **配置解析器**
+ *
+ * 用于解析配置文件，将配置文件内容转换为高亮渲染所需的配置对象\
+ * 配置文件采用特定格式，支持多文件合并配置。
+ *
+ * @example 配置文件格式示例:
+ * %< code-highlight version-2.0 snow-bud >%
+ * enclose-hig:
+ * '//' - '\n'  -> #cccccc
+ * '/*' - '* /' -> #ccc
+ * '"' - '"'    -> #7d7
+ *
+ * enclose-doc:
+ * '/**' - '* /'-> #ccc
+ *
+ * enclose-low:
+ * '@' - ' '    -> rgb(200, 100, 100)
+ *
+ * pre-token:
+ * ':'    -> rgba(119, 153, 119, 1)
+ *
+ * doc-token:
+ * '@return'  -> red
+ *
+ * keyword:
+ * 'class'    -> orange
+ * 'int'      -> #a55
+ *
+ *
+ * @example 解析器使用示例：
+ * // 单文件配置
+ * const config = new configure('/config/javascript.conf');
+ * await config.compile();
+ *
+ * // 多文件配置
+ * const config = new configure('/config/base.conf');
+ * config.attachment('/config/javascript.conf');
+ * await config.compile();
+ *
+ * @note 配置文件必须以 %< code-highlight version-2.0 snow-bud >% 开头
+ */
 export class configure {
   #statement = `%< code-highlight version-2.0 snow-bud >%`
   #sort = {

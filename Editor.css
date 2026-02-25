@@ -54,8 +54,12 @@ body {
 
 .text-editor .editor-header .editor-title,
 .code-editor .editor-header .editor-title {
+  color: #000;
+  border: none;
   font-size: 18px;
+  background: none;
   font-weight: bold;
+  text-decoration: none;
 }
 
 .text-editor .editor-header .editor-info,

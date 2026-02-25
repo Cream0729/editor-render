@@ -5,7 +5,7 @@ import {editor_builder} from './core/editor_builder.js'
 import {configure} from './core/configure.js'
 
 /**
- * 编辑器渲染器主模块 - v2.0.1
+ * **编辑器渲染器主模块**
  *
  * 提供完整的Web代码编辑器解决方案，包括：
  * - 自定义标签解析（`<code-editor>` 和 `<text-editor>`）
@@ -41,13 +41,13 @@ import {configure} from './core/configure.js'
  * @requires editor_builder
  * @requires configure
  * @author SnowBud
- * @version v2.0.1
+ * @version v2.0.2
  */
 export const EditorRender = (() => {
   let initialized;
 
   /**
-   * 编辑器配置管理类
+   * **编辑器配置管理类**
    *
    * 封装特定DOM容器的高亮配置加载逻辑，支持：
    * - 单文件直接配置（config方法）
@@ -161,8 +161,7 @@ export const EditorRender = (() => {
     async compile() {
       if (!this.#attaching) throw new Error(`[Editor] you have not attach configuration, cannot compile.`);
       const obj = new highlight_render(this.#selector);
-      obj.config(await this.#attaching.compile());
-      return obj;
+      return obj.config(await this.#attaching.compile());
     }
 
     /**
@@ -192,8 +191,10 @@ export const EditorRender = (() => {
      * @see Editor.compile
      * @see Editor.attachment
      * @see highlight_render.config
+     * @return {highlight_render} - 代码高亮渲染核心
      */
     compile_by_data(data) {
+      if (this.#attaching) throw new Error(`[Editor] you has bean attaching, must be use compile() for render code.`)
       return new highlight_render(this.#selector).config(data);
     }
   }
@@ -228,7 +229,7 @@ export const EditorRender = (() => {
    * 若未初始化渲染标签，则会自动执行 setup()
    *
    * @param {url | string} url 路径字符串
-   * @returns {Promise<highlight_render>}
+   * @returns {Promise<highlight_render>} - 代码高亮渲染核心
    * @see Editor.compile
    */
   async function config(url) {
@@ -261,7 +262,7 @@ export const EditorRender = (() => {
    * EditorRender.forDom('div > pre.editor').config('/config/default.conf');
    *
    * @param dom 选择器字符串
-   * @returns {Editor}
+   * @returns {Editor} 返回当前实例以支持链式调用
    */
   function forDom(dom) {
     if (!initialized) setup();
@@ -292,14 +293,29 @@ export const EditorRender = (() => {
    * EditorRender.setDom('#editor')  // 目标: #editor（直接）
    *
    * @param dom 选择器字符串
-   * @returns {Editor}
+   * @returns {Editor} 返回当前实例以支持链式调用
    */
   function setDom(dom) {
     if (!initialized) setup();
     return new Editor(dom);
   }
 
+  /**
+   * 直接写入数据，加载语法高亮并应用到默认的 `.edt-content` 元素
+   *
+   * 若未初始化渲染标签，则会自动执行 setup()
+   *
+   * @see Editor.compile_by_data
+   * @see highlight_render
+   * @param {Object} data - 直接数据
+   * @returns {highlight_render} - 代码高亮渲染核心
+   */
+  function compile_by_data(data) {
+    if (!initialized) setup();
+    return new Editor(`.editor-content`).compile_by_data(data);
+  }
+
   return {
-    setup, config, forDom, setDom
+    setup, config, forDom, setDom, compile_by_data
   }
 })()

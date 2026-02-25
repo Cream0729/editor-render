@@ -1,3 +1,17 @@
+/**
+ * **编辑器构建器类**
+ *
+ * 负责将自定义标签 `<code-editor>` 和 `<text-editor>` 转换为可交互的代码编辑器组件，
+ * 包括行号、标题栏、复制按钮等UI元素，并初始化编辑器功能。
+ *
+ * @example
+ * // 自动初始化所有 code-editor 和 text-editor 标签
+ * new editor_builder();
+ *
+ * // 也可以手动调用
+ * const builder = new editor_builder();
+ * builder.buildUp(document.querySelector('#my-editor'));
+ */
 export class editor_builder {
   constructor() {
     document.querySelectorAll('code-editor')
@@ -5,6 +19,7 @@ export class editor_builder {
     document.querySelectorAll('text-editor')
         .forEach(el => this.#build_up(el, 'TEXT-EDITOR'));
     this.#copy_button();
+    this.#scroll_button();
   }
 
   #build_up(element, tagName) {
@@ -85,7 +100,7 @@ export class editor_builder {
     return `
                 <div${idAttr} ${classAttr}>
                     <div class="editor-header">
-                        <span class="editor-title">${titleDisplay}</span>
+                        <button onclick="scroll_to(this)" class="editor-title">${titleDisplay}</button>
                         <div class="editor-info">${langSection}${copyBtn}</div>
                     </div>
                     <div class="editor-body">
@@ -117,7 +132,7 @@ export class editor_builder {
     return `
                 <div${idAttr} ${classAttr}>
                     <div class="editor-header">
-                        <span class="editor-title">${titleDisplay}</span>
+                        <button onclick="scroll_to(this)" class="editor-title">${titleDisplay}</button>
                         <div class="editor-info">${copyBtn}</div>
                     </div>
                     <div class="editor-body">
@@ -231,6 +246,20 @@ export class editor_builder {
                         复制失败
                     `;
         cooling(button, originalHTML);
+      });
+    };
+  }
+
+  #scroll_button() {
+    window.scroll_to = (button) => {
+      const editor = button.closest('.code-editor, .text-editor');
+      if (!editor) return;
+      const targetY =
+          window.scrollY + editor.getBoundingClientRect().top
+          - Math.min(window.innerHeight * 0.15, 230);
+      window.scrollTo({
+        top: targetY,
+        behavior: 'smooth'
       });
     };
   }
