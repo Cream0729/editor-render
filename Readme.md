@@ -5,6 +5,10 @@
 >
 > EditorRender is an ultra-lightweight vanilla JavaScript code editor rendering engine with custom tags and syntax
 > highlighting. A personal learning project, untested and not recommended for production use.
+>
+> ⚠️ **版本说明**  
+> 当前仓库标记为 v2.0.1，此为**内部开发迭代编号**，不代表稳定版本。  
+> 项目仍处于 v0.x 阶段（v0.2 功能完整，v3 重构中），仅当 release（发布）时才正式为 v1.0.0
 
 一个极简的浏览器端代码编辑器渲染引擎，能够将自定义的
 
