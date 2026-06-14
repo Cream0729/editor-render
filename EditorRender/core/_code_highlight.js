@@ -1,0 +1,312 @@
+// noinspection JSUnusedGlobalSymbols
+
+/**
+ * **代码高亮渲染核心类**
+ *
+ * 提供基于状态机的代码语法高亮渲染功能，支持多种高亮规则：
+ * - enclose-hig: 高优先级包围结构（内部不允许任何渲染，如字符串、注释）
+ * - enclose-doc: 文档注释包围结构（内部只允许 doc-token 渲染，如JSDoc）
+ * - enclose-low: 低优先级包围结构（内部允许 enclose-hig 渲染，如注解）
+ * - pre-token: 前缀Token（往回寻找整词渲染，最长匹配优先）
+ * - doc-token: 文档内Token（仅可在 enclose-doc 内部渲染，如@returns）
+ * - keyword: 基础关键词整词渲染（如function, class, return）
+ *
+ * 渲染优先级：enclose-doc > enclose-hig > enclose-low > pre-token > keyword
+ *
+ * @example
+ * // 创建高亮渲染器实例
+ * const renderer = new highlight_render('.code-block');
+ *
+ * // 配置高亮规则
+ * renderer.config({
+ *   'enclose-hig': [ // 高优先级包围规则
+ *     {'"': {rig: '"', color: '#7d7'}}, // 字符串
+ *     {"'": {rig: "'", color: '#5a5'}} // 单引号字符串
+ *   ],
+ *   'keyword': { // 关键词规则
+ *     'function': '#a55', // 函数关键字
+ *     'const': '#a55' // 常量关键字
+ *   }
+ * });
+ *
+ * // 刷新渲染
+ * renderer.highlight_refresh();
+ */
+export default class CodeHighlight {
+    #RE_WORD = /(?<![<@$A-Za-z0-9_>\-])[<@$A-Za-z_\-][<@$A-Za-z0-9_>\-]*(?![<@$A-Za-z0-9_>\-])/y
+    #RE_ENTRY_WORD = /[A-Za-z0-9_-]/
+    #initialized = false
+    #data = {
+        'enclose-hig': [],
+        'enclose-doc': [],
+        'enclose-low': [],
+        'pre-token': [],
+        'doc-token': {},
+        'keyword': {}
+    }
+    #lang
+
+    /**
+     * 创建高亮实例。
+     * @param {string} lang - CSS 选择器，用于定位要高亮的元素 (如 '.js')
+     * @param {Object} highlight_data - 由 ConfigureData 编译出的规则数据
+     */
+    constructor(lang, highlight_data) {
+        this.#lang = lang;
+        this.#data = highlight_data;
+    }
+
+    /**
+     * 执行渲染。
+     *
+     * 遍历页面上匹配选择器的元素，对其文本内容进行高亮处理，并更新 innerHTML。
+     *
+     * @param {boolean} [reinit=false] - 是否强制重新渲染已初始化的元素
+     *
+     * @example
+     * const highlight = new CodeHighlight('.my-code', configData);
+     * await highlight.render();
+     */
+    render(reinit = false) {
+        if(this.#initialized && !reinit) {
+            console.warn(`[EditorRender - CodeHighlight] >> lang: ${this.#lang} has initialized render.`)
+            return
+        }
+        document.querySelectorAll(this.#lang).forEach(element => element.innerHTML = this.#do_render(element.textContent))
+    }
+
+    /**
+     * 刷新指定元素。
+     *
+     * 仅重新渲染传入的特定 DOM 元素，用于动态更新内容。
+     *
+     * @param {HTMLElement} element - 要刷新的 DOM 元素
+     * @returns {Promise<void>}
+     */
+    refresh(element) {
+        element.innerHTML = this.#do_render(element.textContent)
+    }
+
+    get_lang() {
+        return this.#lang;
+    }
+
+    #do_render(content) {
+        const entries = this.#entries(content);
+        let state = { hig: null, doc: null, low: null }
+        let current = 0
+        let rendered = ''
+        let index = 0
+
+        while (current < content.length) {
+            const closeResult = this.#close_innermost(content, current, state);
+            if (closeResult.advance > 0) {
+                rendered += closeResult.html;
+                current += closeResult.advance;
+                continue;
+            }
+
+            const handlerResult = this.#state_handler(state)(content, current, state, entries, index);
+            if (handlerResult.type === 'entry') {
+                rendered += handlerResult.html;
+                current = handlerResult.newPos;
+                index = handlerResult.newIndex;
+            } else {
+                rendered += handlerResult.html;
+                current += handlerResult.advance;
+            }
+        }
+        rendered += this.#close_remaining(state);
+        return rendered;
+    }
+
+    #close_innermost(content, current, state) {
+        if (state.hig && this.#match(content, current, this.#get_rig(state.hig))) {
+            const rig = this.#get_rig(state.hig);
+            state.hig = null;
+            return { html: `${this.#html_esc(rig)}</span>`, advance: rig.length };
+        }
+
+        if (state.doc && !state.hig && this.#match(content, current, this.#get_rig(state.doc))) {
+            const rig = this.#get_rig(state.doc);
+            state.doc = null;
+            return { html: `${this.#html_esc(rig)}</span>`, advance: rig.length };
+        }
+
+        if (state.low && !state.hig && !state.doc && this.#match(content, current, this.#get_rig(state.low))) {
+            const rig = this.#get_rig(state.low);
+            state.low = null;
+            return { html: `${this.#html_esc(rig)}</span>`, advance: rig.length };
+        }
+        return { html: '', advance: 0 };
+    }
+
+    #state_handler(state) {
+        if (state.hig) return this.#hig_state.bind(this);
+        if (state.doc) return this.#doc_state.bind(this);
+        if (state.low) return this.#low_state.bind(this);
+        return this.#default_state.bind(this);
+    }
+
+    #hig_state(content, current) {
+        return { type: 'char', html: this.#html_esc(content[current]), advance: 1 };
+    }
+
+    #doc_state(content, current) {
+        this.#RE_WORD.lastIndex = current;
+        const match = this.#RE_WORD.exec(content);
+        if (match && match.index === current && this.#data['doc-token'][match[0]] !== undefined) {
+            const color = this.#data['doc-token'][match[0]] || '#000';
+            return {
+                type: 'char',
+                html: `<span style="color:${color}">${match[0]}</span>`,
+                advance: match[0].length
+            };
+        }
+        return { type: 'char', html: this.#html_esc(content[current]), advance: 1 };
+    }
+
+    #low_state(content, current, state) {
+        const higRule = this.#try_left(content, current, this.#data['enclose-hig']);
+        if (higRule) {
+            state.hig = higRule;
+            return {
+                type: 'char',
+                html: `<span style="color:${this.#get_color(higRule)}">${this.#html_esc(this.#get_lef(higRule))}`,
+                advance: this.#get_lef(higRule).length
+            };
+        }
+        return { type: 'char', html: this.#html_esc(content[current]), advance: 1 };
+    }
+
+    #default_state(content, current, state, entries, index) {
+        if (index < entries.length && entries[index].start === current) {
+            const match = entries[index];
+            const word = content.slice(match.wordStart, match.wordEnd);
+            const html = `<span style="color:${match.color}">${this.#html_esc(word)}${this.#html_esc(match.token)}</span>`;
+            return {
+                type: 'entry',
+                html: html,
+                newPos: match.end,
+                newIndex: index + 1
+            };
+        }
+
+        const docRule = this.#try_left(content, current, this.#data['enclose-doc']);
+        if (docRule) {
+            state.doc = docRule;
+            return {
+                type: 'char',
+                html: `<span style="color:${this.#get_color(docRule)}">${this.#html_esc(this.#get_lef(docRule))}`,
+                advance: this.#get_lef(docRule).length
+            };
+        }
+
+        const higRule = this.#try_left(content, current, this.#data['enclose-hig']);
+        if (higRule) {
+            state.hig = higRule;
+            return {
+                type: 'char',
+                html: `<span style="color:${this.#get_color(higRule)}">${this.#html_esc(this.#get_lef(higRule))}`,
+                advance: this.#get_lef(higRule).length
+            };
+        }
+
+        const lowRule = this.#try_left(content, current, this.#data['enclose-low']);
+        if (lowRule) {
+            state.low = lowRule;
+            return {
+                type: 'char',
+                html: `<span style="color:${this.#get_color(lowRule)}">${this.#html_esc(this.#get_lef(lowRule))}`,
+                advance: this.#get_lef(lowRule).length
+            };
+        }
+
+        this.#RE_WORD.lastIndex = current;
+        const kwMatch = this.#RE_WORD.exec(content);
+        if (kwMatch && kwMatch.index === current && this.#data['keyword'][kwMatch[0]] !== undefined) {
+            const color = this.#data['keyword'][kwMatch[0]] || '#000';
+            return {
+                type: 'char',
+                html: `<span style="color:${color}">${kwMatch[0]}</span>`,
+                advance: kwMatch[0].length
+            };
+        }
+        return { type: 'char', html: this.#html_esc(content[current]), advance: 1 };
+    }
+
+    #entries(text) {
+        const matches = [];
+        for (let pos = 0; pos < text.length; pos++) {
+            let matchedRules = [];
+            for (const rule of this.#data['pre-token']) {
+                const token = Object.keys(rule)[0];
+                if (this.#match(text, pos, token)) matchedRules.push({ rule, token, length: token.length });
+            }
+
+            matchedRules.sort((a, b) => b.length - a.length);
+
+            if (matchedRules.length > 0) {
+                const { rule, token } = matchedRules[0];
+
+                if (pos > 0 && this.#RE_ENTRY_WORD.test(text[pos - 1])) {
+                    let i = pos - 1;
+                    while (i >= 0 && this.#RE_ENTRY_WORD.test(text[i])) i--;
+                    const start = i + 1;
+
+                    if (start < pos) {
+                        matches.push({
+                            start: start,
+                            end: pos + token.length,
+                            wordStart: start,
+                            wordEnd: pos,
+                            token: token,
+                            color: rule[token]
+                        });
+                        pos += token.length - 1;
+                    }
+                }
+            }
+        }
+        return matches;
+    }
+
+    #close_remaining(state) {
+        let html = '';
+        if (state.hig) html += this.#html_esc(this.#get_rig(state.hig)) + '</span>';
+        if (state.doc) html += this.#html_esc(this.#get_rig(state.doc)) + '</span>';
+        if (state.low) html += this.#html_esc(this.#get_rig(state.low)) + '</span>';
+        return html;
+    }
+
+    #html_esc(content) {
+        return content.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    #match(text, pos, str) {
+        return text.slice(pos, pos + str.length) === str;
+    }
+
+    #try_left(text, pos, rules) {
+        const slice = text.slice(pos);
+        for (const rule of rules) {
+            const left = Object.keys(rule)[0];
+            if (slice.startsWith(left)) return rule;
+        }
+        return null;
+    }
+
+    #get_rig(rule) {
+        const left = Object.keys(rule)[0];
+        return rule[left].rig;
+    }
+
+    #get_color(rule) {
+        const left = Object.keys(rule)[0];
+        return rule[left].color;
+    }
+
+    #get_lef(rule) {
+        return Object.keys(rule)[0];
+    }
+}

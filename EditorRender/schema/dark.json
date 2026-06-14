@@ -1,0 +1,65 @@
+{
+    "editor": {
+        "border": {
+            "outer-width": "3px",
+            "inner-width": "1px",
+            "outer-color": "#000000",
+            "inner-color": "#808080"
+        },
+        "header": {
+            "background": "#282828",
+            "title": {
+                "font-color": "#e9e9e9"
+            },
+            "separator": {
+                "font-color": "#bbbbbb"
+            }
+        },
+        "line-number": {
+            "background": "#303030",
+            "number-color": "#7f7f7f"
+        },
+        "content": {
+            "background": "#3c3c3c",
+            "default-color": "#d3d3d3"
+        }
+    },
+    "info-block": {
+        "lang": {
+            "svg-color": "#a0a0a0",
+            "text-color": "#bbbbbb"
+        }
+    },
+    "button": {
+        "copy": {
+            "default": {
+                "svg-color": "#a0a0a0",
+                "text-color": "#bbbbbb",
+                "hover": {
+                    "text-color": "#eeeeee"
+                }
+            },
+            "success": {
+                "text-color": "#bbbbbb"
+            },
+            "failed": {
+                "text-color": "#bbbbbb"
+            }
+        },
+        "emit": {
+            "default": {
+                "svg-color": "#a0a0a0",
+                "text-color": "#bbbbbb",
+                "hover": {
+                    "text-color": "#eeeeee"
+                }
+            },
+            "success": {
+                "text-color": "#bbbbbb"
+            },
+            "failed": {
+                "text-color": "#bbbbbb"
+            }
+        }
+    }
+}

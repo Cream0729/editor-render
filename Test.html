@@ -1,17 +1,24 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <title>超级简洁的测试环境</title>
-  <link rel="stylesheet" href="Editor.css">
-  <style>
-    .split-block {
-      height: 30px;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <title>超级简洁的测试环境</title>
+    <style>
+        body {
+            padding: 1% 10% 2%;
+        }
+        .split-block {
+            width: 100%;
+            height: 35px;
+        }
+    </style>
 </head>
 <body>
-<code-editor class="java" lang="Java" title="Java 代码高亮测试">
+<text-editor title="编辑器测试">
+    测试内容都是乱生成的，仅作展示
+</text-editor>
+<div class="split-block"></div>
+<code-editor lang="Java" title="Java 代码高亮测试">
 /**
  * 用户服务管理类
  * 提供用户CRUD操作和认证功能
@@ -111,7 +118,7 @@ public class UserService {
 </code-editor>
 <div class="split-block"></div>
 
-<code-editor class="python" lang="Python" title="Python 代码高亮测试">
+<code-editor lang="Python" title="Python 代码高亮测试">
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
@@ -553,7 +560,7 @@ if __name__ == "__main__":
 </code-editor>
 <div class="split-block"></div>
 
-<code-editor class="html" lang="HTML" title="HTML 代码高亮测试">
+<code-editor lang="HTML" title="HTML 代码高亮测试">
 &lt;!DOCTYPE html&gt;
 &lt;html lang="zh-CN" data-theme="dark"&gt;
 &lt;head&gt;
@@ -713,7 +720,7 @@ if __name__ == "__main__":
 </code-editor>
 <div class="split-block"></div>
 
-<code-editor class="css" lang="CSS" title="CSS 代码高亮测试">
+<code-editor lang="CSS" title="CSS 代码高亮测试">
 /**
  * CodeEditor 样式系统
  * 提供深色/浅色主题、响应式布局和动画效果
@@ -983,7 +990,7 @@ if __name__ == "__main__":
 </code-editor>
 <div class="split-block"></div>
 
-<code-editor class="javascript" lang="JavaScript" title="JavaScript 代码高亮测试">
+<code-editor lang="JavaScript" title="JavaScript 代码高亮测试">
 /**
  * 异步数据获取Hook
  * 提供带缓存、重试、取消功能的请求管理
@@ -1140,12 +1147,14 @@ export { useAsyncFetch, debounce, EventEmitter, isValidEmail };
 
 </body>
 <script type="module">
-  import {EditorRender} from "./EditorRender.js";
+    import EditorRender from "./EditorRender/EditorRender.js";
 
-  EditorRender.forDom(".css").config("conf/css.conf");
-  EditorRender.forDom(".html").config("conf/html.conf");
-  EditorRender.forDom(".java").config("conf/java.conf");
-  EditorRender.forDom(".python").config("conf/python.conf");
-  EditorRender.forDom(".javascript").config("conf/javascript.conf");
+    EditorRender.setup("./EditorRender/schema/dark.json");
+
+    EditorRender.render("./EditorRender/config/css.conf", "CSS")
+    EditorRender.render("./EditorRender/config/html.conf", "HTML")
+    EditorRender.render("./EditorRender/config/java.conf", "Java")
+    EditorRender.render("./EditorRender/config/python.conf", "Python")
+    EditorRender.render("./EditorRender/config/javascript.conf", "JavaScript")
 </script>
 </html>
