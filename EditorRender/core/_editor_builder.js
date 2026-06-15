@@ -189,7 +189,7 @@ export default class EditorBuilder {
         const count = lines.length || 1
 
         let num = ''
-        for (let i = 1; i <= count; i++) num += `<div class="line-num">${i}</div>`
+        for (let i = 1; i <= count; i++) num += `<span class="line-num">${i}</span>`
         num_block.innerHTML = num
     }
 
